@@ -1,0 +1,378 @@
+using MySqlConnector;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Configuration;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace BestBase
+{
+    public partial class fmAccount : Form
+    {
+
+        string con = ConfigurationManager.ConnectionStrings["bestbase"].ConnectionString;
+
+        public int user_add;
+        public int user_edit;
+        public string ReturnedUserType;
+
+        private MySqlCommand cmd;
+        private MySqlConnection conn;
+        string dgvSelectedRowID = string.Empty;
+        public int CurrentUser;
+        string salti = "best";
+
+        public fmAccount()
+        {
+            InitializeComponent();
+        }
+
+        private void btnNewNew_Click(object sender, EventArgs e)
+        {
+            ClearAllDataNew();
+        }
+
+        private void btnNewSave_Click(object sender, EventArgs e)
+        {
+            if (dgvSelectedRowID == string.Empty)
+            {
+                if (tbNewName.Text != string.Empty && tbNewPass.Text !=string.Empty)
+                {
+                    DialogResult dialogResult = MessageBox.Show("Sure", "Are you sure ?", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (dialogResult == DialogResult.Yes)
+                    {
+                        using (conn = new MySqlConnection(con))
+                        {
+                            conn.Open();
+                            MySqlTransaction tran = conn.BeginTransaction();
+
+                            try
+
+                            {
+                                string sql = "insert into user (username_user,password_user,role_user,date_modified_user) values (@username,@password,@type,@date); SELECT LAST_INSERT_ID();";
+                                int inserted_id;
+
+                                using (cmd = new MySqlCommand(sql, conn,tran))
+                                {
+                                    string pasHash = GenerateHash(tbNewPass.Text, salti);
+
+                                    cmd.Parameters.AddWithValue("@username", tbNewName.Text);
+                                    cmd.Parameters.AddWithValue("@password", pasHash);
+                                    cmd.Parameters.AddWithValue("@type", cbNewType.Text);
+                                    cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt"));
+
+                                    inserted_id = Convert.ToInt32(cmd.ExecuteScalar());
+
+                                }
+                                string sqlro = "insert into role_users (user_id) values (@user_id);";
+
+                                using (cmd = new MySqlCommand(sqlro, conn, tran))
+                                {
+                                    cmd.Parameters.AddWithValue("@user_id", inserted_id);
+                                    cmd.ExecuteNonQuery();
+
+                                }
+                                tran.Commit();
+                                ClassLog.AllLogWhenHappen(CurrentUser, "Added User", tbNewName.Text + ", " + cbNewType.Text, 0, 0);
+
+                                GetAll200Data();
+
+
+
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex.Message);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("username and password are require");
+                }
+            }
+            else if (dgvSelectedRowID != string.Empty && (Convert.ToInt32(dgvSelectedRowID) == CurrentUser || (dgvShow.CurrentRow.Cells["role_user"].Value.ToString()=="User" && ReturnedUserType == "Admin")))
+            {
+                if (tbNewName.Text != string.Empty)
+                {
+                    if(tbNewPass.Text != string.Empty)
+                    { 
+                    DialogResult dialogResult = MessageBox.Show("Sure", "Are you sure ?", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (dialogResult == DialogResult.Yes)
+                        {
+                            try
+                            {
+
+                                //,Industry,Experience
+                                string sql = "UPDATE user SET username_user=@username,password_user=@password,role_user=@type,date_modified_user=@date where user_id=@ID";
+                                using (conn = new MySqlConnection(con))
+                                {
+                                    conn.Open();
+                                    using (cmd = new MySqlCommand(sql, conn))
+                                    {
+                                        string pasHash = GenerateHash(tbNewPass.Text, salti);
+
+                                        cmd.Parameters.AddWithValue("@ID", dgvSelectedRowID);
+                                        cmd.Parameters.AddWithValue("@username", tbNewName.Text);
+                                        cmd.Parameters.AddWithValue("@password", pasHash);
+                                        cmd.Parameters.AddWithValue("@type", cbNewType.Text);
+                                        cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt"));
+                                        cmd.ExecuteNonQuery();
+                                        ClassLog.AllLogWhenHappen(CurrentUser, "Updated User", tbNewName.Text + ", " + cbNewType.Text, 0, 0);
+
+                                        GetAll200Data();
+                                    }
+                                }
+
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex.Message);
+                            }
+
+                        }
+                    }
+                    else
+                    {
+                        DialogResult dialogResult = MessageBox.Show("Sure", "Are you sure ?", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (dialogResult == DialogResult.Yes)
+                        {
+                            try
+                            {
+
+                                //,Industry,Experience
+                                string sql = "UPDATE user SET username_user=@username,role_user=@type,date_modified_user=@date where user_id=@ID";
+                                using (conn = new MySqlConnection(con))
+                                {
+                                    conn.Open();
+                                    using (cmd = new MySqlCommand(sql, conn))
+                                    {
+                                        string pasHash = GenerateHash(tbNewPass.Text, salti);
+
+                                        cmd.Parameters.AddWithValue("@ID", dgvSelectedRowID);
+                                        cmd.Parameters.AddWithValue("@username", tbNewName.Text);
+                                        cmd.Parameters.AddWithValue("@type", cbNewType.Text);
+                                        cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt"));
+                                        cmd.ExecuteNonQuery();
+                                        GetAll200Data();
+                                    }
+                                }
+
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex.Message);
+                            }
+
+                        }
+
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("username and password are require");
+                }
+            }
+            else
+            {
+                MessageBox.Show("دەبێت ئەکاونتێک هەڵبژێریت یان ئەم کەسە خۆی دەتوانێت ناو و پاسسوۆرد بگۆرێت");
+            }
+        }
+
+        private void btnNewDelete_Click(object sender, EventArgs e)
+        {
+
+
+        }
+
+        private void fmAccount_Load(object sender, EventArgs e)
+        {
+            if (ReturnedUserType != "Admin")
+            {
+                btnRoles.Enabled = false;
+                btnRoles.Visible = false;
+            }
+
+            if (ReturnedUserType == "Admin" || user_edit == 1)
+            {
+                dgvShow.Enabled = true;
+            }
+            else
+            {
+                dgvShow.Enabled = false;
+            }
+            if (ReturnedUserType == "Admin" || user_add == 1)
+            {
+                btnNewSave.Visible = true;
+            }
+            else
+            {
+                btnNewSave.Visible = false;
+            }
+
+            cbNewType.SelectedIndex = 0;
+            GetAll200Data();
+        }
+        private void GetAll200Data()
+        {
+            btnRoles.Enabled = false;
+            btnRoles.Visible = false;
+            try
+            {
+                using (conn = new MySqlConnection(con))
+                {
+                    var select = "SELECT * FROM user ";
+
+                    conn.Open();
+                    using (var dataAdapter = new MySqlDataAdapter(select, conn))
+                    {
+                        var commandBuilder = new MySqlCommandBuilder(dataAdapter);
+                        var ds = new DataSet();
+                        dataAdapter.Fill(ds);
+                        dgvShow.ReadOnly = true;
+                        dgvShow.DataSource = ds.Tables[0];
+                    }
+
+                }
+
+                if (dgvShow != null)
+                {
+                    dgvShow.RowHeadersVisible = false;
+                    this.dgvShow.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+                    dgvShow.Columns[dgvShow.ColumnCount - 1].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                }
+                dgvShow.Columns["password_user"].Visible = false;
+                dgvShow.ClearSelection();
+                ClearAllDataNew();
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.ToString());
+            }
+            if (ReturnedUserType != "Admin")
+            {
+                btnRoles.Enabled = false;
+                btnRoles.Visible = false;
+            }
+        }
+
+        private void ClearAllDataNew()
+        {
+           
+            dgvShow.ClearSelection();
+            dgvSelectedRowID = string.Empty;
+            tbNewName.Text = "";
+            tbNewPass.Text = "";
+
+
+        }
+
+        private void dgvShow_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (dgvShow.Rows.Count > 0)
+            {
+                RowSelected();
+            }
+        }
+        private void RowSelected()
+        {
+            dgvSelectedRowID = dgvShow.CurrentRow.Cells["user_id"].Value.ToString();
+            tbNewName.Text = dgvShow.CurrentRow.Cells["username_user"].Value.ToString();
+            cbNewType.Text = dgvShow.CurrentRow.Cells["role_user"].Value.ToString();
+            if (cbNewType.Text == "Admin")
+            {
+                btnRoles.Enabled = false;
+                btnRoles.Visible = false;
+            }
+            else
+            {
+                btnRoles.Enabled = true;
+                btnRoles.Visible = true;
+            }
+            if (ReturnedUserType != "Admin")
+            {
+                btnRoles.Enabled = false;
+                btnRoles.Visible = false;
+            }
+        }
+
+        private void dgvShow_KeyDown(object sender, KeyEventArgs e)
+        {
+
+            if (e.KeyCode == Keys.Up)
+            {
+                   
+                
+            }
+            if (e.KeyCode == Keys.Down)
+            {
+               
+            }
+          
+        
+        }
+
+
+
+
+
+        private void tbNewName_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                btnNewSave.PerformClick();
+            }
+        }
+
+        private void tbNewPass_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                btnNewSave.PerformClick();
+            }
+        }
+
+        private void cbNewType_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                btnNewSave.PerformClick();
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+             
+        }
+        private static string GenerateHash(string value, string salt)
+        {
+            byte[] data = System.Text.Encoding.ASCII.GetBytes(salt + value);
+            data = System.Security.Cryptography.MD5.Create().ComputeHash(data);
+            return Convert.ToBase64String(data);
+        }
+
+        private void dgvShow_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+
+        }
+
+        private void groupBox2_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnRoles_Click(object sender, EventArgs e)
+        {
+
+            fmUser_role us = new fmUser_role();
+            us.user_id = Convert.ToInt16(dgvSelectedRowID);
+            us.ShowDialog();
+        }
+    }
+}
